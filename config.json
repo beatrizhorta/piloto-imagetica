@@ -1,0 +1,79 @@
+{
+  "_comentario": "Parâmetros e textos do pré-piloto. Textos aceitam HTML. Chaves listadas em _textos_provisorios ainda são rascunhos e precisam ser trocadas pelos textos finais.",
+  "_textos_provisorios": [
+    "texts.vividness_definition",
+    "texts.imagery_command",
+    "vividness_anchors",
+    "dynamism_anchors",
+    "min_window_width",
+    "min_window_height",
+    "extra_questions"
+  ],
+  "study_name": "Pré-piloto: imagética de imagens e vídeos",
+  "data_email": "beatriz.horta@idor.org",
+  "email_subject": "Piloto imagética – {pid}",
+  "pid_pattern": "^P\\d{2,3}$",
+  "fixation_ms": 500,
+  "stim_duration_ms": 3000,
+  "mask_duration_ms": 2000,
+  "imagery_duration_ms": 6000,
+  "stim_size_px": 512,
+  "n_max_trials": 100,
+  "block_size": 10,
+  "checkpoint_every": 10,
+  "repeat_proportion": 0.3,
+  "min_lag": 3,
+  "max_lag": 20,
+  "practice_stim_ids": [
+    "PR01",
+    "PR02"
+  ],
+  "practice_description_modes": [
+    "written",
+    "audio"
+  ],
+  "audio_bitrate_bps": 32000,
+  "audio_max_ms": 120000,
+  "mic_test_ms": 3000,
+  "min_window_width": 1024,
+  "min_window_height": 700,
+  "allowed_browsers": [
+    "chrome",
+    "edge"
+  ],
+  "vividness_question": "Quão vívida foi a imagem que você formou na sua mente?",
+  "vividness_anchors": [
+    "Nenhuma imagem (só sabia que estava pensando no estímulo)",
+    "Vaga e apagada",
+    "Moderadamente clara e vívida",
+    "Clara e razoavelmente vívida",
+    "Perfeitamente clara, tão vívida quanto ver de verdade"
+  ],
+  "dynamism_question": "Em que medida a imagem que você imaginou foi dinâmica (com movimento)?",
+  "dynamism_anchors": [
+    "Totalmente estática, sem movimento",
+    "Pouco movimento",
+    "Movimento moderado",
+    "Bastante movimento",
+    "Muito dinâmica, com bastante movimento"
+  ],
+  "recognition_question": "Você já viu este estímulo antes nesta sessão?",
+  "description_written_prompt": "Descreva por escrito, com o máximo de detalhes que conseguir, o que você imaginou.",
+  "description_audio_prompt": "Descreva em voz alta, com o máximo de detalhes que conseguir, o que você imaginou. A gravação já começou; clique em <b>Parar gravação</b> quando terminar.",
+  "texts": {
+    "welcome": "<h2>Olá!</h2><p>Você está participando do teste pré-piloto do <b>IAmagética</b>! O objetivo desse teste é avaliar os seguintes eixos do experimento:</p><ol><li>Cansaço do participante</li><li>Modelo de apresentação dos estímulos</li><li>Melhor forma de descrever a imagética</li></ol><h3>O que vai acontecer</h3><ol><li>Primeiro, o site confere se o seu computador, o navegador e o <b>microfone</b> estão funcionando, e você faz um teste rápido de gravação.</li><li>Depois vêm as instruções e <b>2 rodadas de prática</b>.</li><li>Em cada rodada do estudo, você vê uma <b>imagem ou um vídeo curto</b> (3 segundos), depois um chuvisco na tela (2 segundos), e então <b>imagina o estímulo</b> que acabou de ver por 6 segundos.</li><li>Em seguida, responde a quatro perguntas: quão vívida foi a imagem que você formou, quão dinâmica (com movimento) ela foi, se você já tinha visto aquele estímulo antes, e uma descrição do que imaginou, às vezes <b>por escrito</b> e às vezes <b>em voz alta</b> (nesse caso, sua voz é gravada).</li><li>A cada 10 rodadas há uma pausa curta, com duas perguntas sobre cansaço e concentração.</li><li><b>Você pode parar quando se sentir cansado(a)</b>: isso faz parte do teste. A sessão completa leva até cerca de 50 minutos.</li><li>No final, há um questionário curto sobre a sua experiência.</li></ol><h3>O arquivo .zip com os seus dados</h3><p>Nada é enviado automaticamente para nenhum servidor: suas respostas e gravações ficam <b>apenas no seu computador</b> durante a sessão. Não coletamos seu nome; você é identificado(a) só pelo código do seu link (<b>{pid}</b>).</p><ol><li>Ao terminar o questionário, o site <b>baixa automaticamente um arquivo .zip</b> (com nome começando por <b>{pid}_</b>), normalmente na pasta <b>Downloads</b>.</li><li><b>Envie esse arquivo por e-mail</b>, como anexo, para <b>{email}</b>, com o assunto <b>Piloto imagética – {pid}</b>. A última tela terá um botão para copiar o endereço e um link para abrir o e-mail já preenchido, mas o arquivo precisa ser <b>anexado manualmente</b>.</li><li>Não abra, renomeie nem altere o .zip; basta anexá-lo como está.</li><li>Se o download não funcionar, use o botão <b>Baixar de novo</b> na última tela. Se a janela fechar no meio, abra o mesmo link de novo, <b>no mesmo computador e navegador</b>, que o site oferece baixar o que já foi feito.</li></ol><p>Se tiver qualquer dúvida, escreva para <b>{email}</b>.</p>",
+    "environment": "<h2>Antes de começar</h2><ul><li>Fique num lugar <b>silencioso</b> e onde você <b>não será interrompido(a)</b>.</li><li>Reserve um tempo livre (até cerca de 50 minutos).</li><li><b>Silencie as notificações</b> do computador e do celular.</li><li>Feche outros programas e abas que possam fazer barulho.</li><li>Use fones de ouvido se o ambiente tiver ruído (o microfone precisa continuar funcionando).</li></ul>",
+    "vividness_definition": "<p><b>Vividez</b> é o quanto a imagem que você forma na mente se parece com ver de verdade: quão clara, nítida e detalhada ela é. Uma imagem muito vívida é quase como estar vendo o estímulo; uma imagem pouco vívida é vaga, apagada, ou quase inexistente.</p>",
+    "imagery_explanation": "<p>Em cada rodada:</p><ol><li>aparece uma cruz no centro da tela — olhe para ela;</li><li>aparece uma <b>imagem</b> ou um <b>vídeo curto</b> (3 segundos);</li><li>aparece uma tela de chuvisco (ruído) por 2 segundos;</li><li>aparece um comando para você <b>imaginar o estímulo que acabou de ver</b>, por 6 segundos. Tente visualizá-lo na sua mente com o máximo de detalhes possível, até a tela mudar;</li><li>depois, você responde a quatro perguntas: quão vívida foi a imagem, quão dinâmica (com movimento) ela foi, se você já tinha visto aquele estímulo antes nesta sessão, e uma descrição do que imaginou (às vezes por escrito, às vezes em voz alta).</li></ol><p>Alguns estímulos aparecem <b>mais de uma vez</b> ao longo da sessão.</p><p>Atalhos: você pode usar as teclas <b>1 a 5</b> nas escalas e <b>S</b>/<b>N</b> na pergunta de reconhecimento.</p>",
+    "stop_notice": "<p><b>Você pode parar quando se sentir cansado(a).</b> Isso faz parte do estudo: queremos justamente saber quantos estímulos dá para fazer antes de cansar. Não existe um número “certo” de rodadas.</p><p>Para parar, use o botão <b>“Estou cansado(a), quero encerrar”</b>, no canto da tela, ou escolha <b>Encerrar</b> nas pausas que aparecem de tempos em tempos. Depois disso há um questionário curto e o download dos dados.</p>",
+    "imagery_command": "Agora visualize na sua mente o estímulo que você acabou de ver, com o máximo de detalhes possível.",
+    "practice_intro": "<h2>Prática</h2><p>Vamos fazer <b>2 rodadas de prática</b> para você se familiarizar. Elas não contam para o estudo.</p><p>Na primeira, a descrição será <b>por escrito</b>; na segunda, <b>em voz alta</b>.</p>",
+    "practice_end": "<h2>Fim da prática</h2><p>Agora começam as rodadas do estudo. Lembre-se: você pode parar quando se sentir cansado(a).</p>",
+    "checkpoint": "<h2>Pausa</h2><p>Descanse um pouco, se quiser. Quando estiver pronto(a), responda às perguntas abaixo e escolha se quer continuar ou encerrar.</p>",
+    "fatigue_confirm": "<h3>Encerrar a sessão?</h3><p>Tudo bem parar agora. Você vai para um questionário final curto e, depois, para o download dos dados.</p>",
+    "thanks": "<h2>Muito obrigada pela participação!</h2>"
+  },
+  "final_questionnaire_intro": "<h2>Questionário final</h2><p>Por último, conte como foi a experiência. Suas impressões são muito importantes para ajustarmos o estudo.</p>",
+  "extra_questions": [],
+  "_extra_questions_formato": "Lista de objetos: {\"id\": \"q_extra1\", \"text\": \"Pergunta\", \"type\": \"text\" | \"likert5\" | \"choice\", \"options\": [\"a\", \"b\"], \"required\": false}"
+}

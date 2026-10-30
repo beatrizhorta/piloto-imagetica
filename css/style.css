@@ -1,0 +1,161 @@
+:root {
+  --bg: #808080;
+  --card: #e8e8e8;
+  --ink: #141414;
+  --muted: #4a4a4a;
+  --accent: #1f4e79;
+  --ok: #1d6b35;
+  --fail: #9b1c1c;
+}
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* o jspsych.css define fundo branco e fonte própria */
+.jspsych-display-element { background: var(--bg); color: var(--ink); font-family: inherit; font-size: 18px; }
+#jspsych-target { height: 100vh; box-sizing: border-box; padding: 44px 0 20px; }
+.jspsych-content { max-width: 960px; }
+
+[hidden] { display: none !important; }
+
+.card {
+  background: var(--card);
+  border-radius: 10px;
+  padding: 24px 32px;
+  margin: 24px auto;
+  max-width: 760px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+.card.text { text-align: left; }
+.card.center { text-align: center; }
+.card h2 { margin-top: 0; }
+.small { font-size: 14px; color: var(--muted); }
+
+.jspsych-btn {
+  font-size: 17px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+.jspsych-btn:hover:not(:disabled) { background: #163a5c; border-color: #163a5c; }
+.jspsych-btn:disabled { opacity: 0.45; cursor: not-allowed; background: #6b6b6b; }
+.btn-secondary { background: #f5f5f5; color: var(--ink); border-color: #777; }
+.btn-secondary:hover:not(:disabled) { background: #dcdcdc; color: var(--ink); }
+.btn-small { font-size: 14px; padding: 4px 10px; }
+
+/* barra superior discreta */
+#topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  z-index: 50;
+  pointer-events: none;
+}
+#topbar > * { pointer-events: auto; }
+#progress { font-size: 14px; color: #1a1a1a; background: rgba(255, 255, 255, 0.35); padding: 3px 10px; border-radius: 12px; }
+#fatigue-btn {
+  margin-left: auto;
+  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid #555;
+  background: rgba(255, 255, 255, 0.4);
+  color: #1a1a1a;
+  cursor: pointer;
+}
+#fatigue-btn:hover { background: rgba(255, 255, 255, 0.7); }
+
+#save-error {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+  background: #fde2e2; color: var(--fail); padding: 8px 14px; font-size: 14px; text-align: center;
+}
+
+/* estímulo, máscara, fixação e imaginação ocupam o mesmo quadrado */
+.stim-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  user-select: none;
+}
+.stim-box img, .stim-box video, .stim-box canvas { display: block; width: 100%; height: 100%; }
+.fixation { font-size: 56px; font-weight: 300; color: #111; line-height: 1; }
+.imagery-text { font-size: 26px; line-height: 1.45; text-align: center; padding: 0 12px; }
+
+/* perguntas */
+.question { font-size: 22px; margin: 0 auto 22px; max-width: 760px; }
+#jspsych-html-button-response-btngroup { display: flex; justify-content: center; flex-wrap: wrap; }
+.scale-btn { white-space: normal; display: flex; flex-direction: column; align-items: center; width: 150px; min-height: 120px; padding: 10px 8px; background: #f5f5f5; color: var(--ink); border-color: #777; }
+.scale-btn:hover:not(:disabled) { background: #dfe9f3; color: var(--ink); border-color: var(--accent); }
+.scale-num { font-size: 26px; font-weight: 600; }
+.scale-anchor { font-size: 14px; line-height: 1.3; margin-top: 4px; }
+.yn-btn { min-width: 140px; font-size: 20px; }
+kbd { font-size: 12px; border: 1px solid currentColor; border-radius: 3px; padding: 0 4px; margin-left: 6px; opacity: 0.7; }
+
+#desc-text { width: min(720px, 90vw); font-size: 17px; font-family: inherit; padding: 10px; border-radius: 6px; border: 1px solid #666; }
+#jspsych-survey-html-form-next { margin-top: 16px; }
+
+.rec-indicator { display: inline-flex; align-items: center; gap: 8px; margin: 6px 0 18px; font-weight: 600; color: var(--fail); }
+.rec-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--fail); animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: 0.2; } }
+#playback { margin-bottom: 14px; }
+#record-again { margin-right: 10px; background: #f5f5f5; color: var(--ink); border-color: #777; }
+
+/* formulários */
+fieldset { border: none; margin: 0 0 18px; padding: 0; text-align: left; }
+legend { font-weight: 600; margin-bottom: 6px; padding: 0; }
+.likert-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.likert-row .anchor { font-size: 14px; color: var(--muted); }
+.likert-opt { display: inline-flex; flex-direction: column; align-items: center; padding: 2px 8px; cursor: pointer; }
+.choice-opt { display: block; cursor: pointer; padding: 2px 0; }
+.other-text { margin-left: 24px; font-size: 16px; padding: 4px 8px; }
+fieldset textarea, fieldset input[type="number"] { width: 100%; max-width: 680px; font-size: 16px; font-family: inherit; padding: 6px 8px; border-radius: 5px; border: 1px solid #777; box-sizing: border-box; }
+fieldset input[type="number"] { max-width: 140px; }
+.questionnaire, #jspsych-survey-html-form { text-align: left; }
+#jspsych-survey-html-form { background: var(--card); border-radius: 10px; padding: 22px 30px; max-width: 760px; margin: 0 auto 30px; }
+#jspsych-survey-html-form-preamble { max-width: 760px; margin: 24px auto 10px; text-align: left; }
+.cp-actions { display: flex; gap: 12px; justify-content: flex-end; }
+.cp-actions #jspsych-survey-html-form-next { margin-top: 0; }
+
+/* checagem */
+.req-list { list-style: none; padding: 0; }
+.req-list li { margin: 6px 0; }
+.req-list .mark { display: inline-block; width: 22px; font-weight: 700; }
+.req-list li.ok .mark { color: var(--ok); }
+.req-list li.fail .mark { color: var(--fail); }
+.req-help { font-size: 15px; color: var(--fail); margin: 4px 0 8px 22px; }
+.meter { width: 260px; height: 10px; background: #bbb; border-radius: 5px; overflow: hidden; margin: 10px 0; }
+#mic-level { height: 100%; width: 0; background: var(--ok); transition: width 60ms linear; }
+.status { min-height: 1.5em; }
+ul.anchors { padding-left: 20px; }
+
+/* overlays */
+.overlay { position: fixed; inset: 0; background: rgba(60, 60, 60, 0.75); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.overlay .card { max-width: 520px; }
+.modal-buttons { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+
+/* recuperação e envio */
+.recovery-list { list-style: none; padding: 0; }
+.recovery-list li { background: #f6f6f6; padding: 12px; border-radius: 6px; margin-bottom: 10px; }
+.recovery-list .dl-btn { margin-top: 8px; }
+.dl-status { margin-left: 10px; font-size: 15px; }
+.email { font-family: ui-monospace, Menlo, monospace; background: #fff; padding: 2px 6px; border-radius: 4px; }
+.send-steps li { margin-bottom: 8px; }
+
+.spinner { width: 34px; height: 34px; margin: 10px auto; border: 4px solid #bbb; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

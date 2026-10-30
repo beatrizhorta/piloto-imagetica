@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="data:,">
+  <title>Pré-piloto: imagética</title>
+  <link rel="stylesheet" href="lib/jspsych.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="topbar" hidden>
+    <span id="progress" hidden></span>
+    <button type="button" id="fatigue-btn" hidden>Estou cansado(a), quero encerrar</button>
+  </div>
+  <div id="save-error" hidden>Atenção: houve um erro ao salvar dados no navegador. Continue normalmente e avise a pesquisadora ao enviar o arquivo.</div>
+
+  <div id="gate" hidden></div>
+  <div id="jspsych-target"></div>
+
+  <div id="modal" class="overlay" hidden>
+    <div class="card text">
+      <div id="modal-body"></div>
+      <div id="modal-buttons" class="modal-buttons"></div>
+    </div>
+  </div>
+
+  <div id="fs-overlay" class="overlay" hidden>
+    <div class="card text">
+      <h3>Você saiu da tela cheia</h3>
+      <p>Para continuar o estudo, volte para a tela cheia.</p>
+      <button type="button" class="jspsych-btn" id="fs-return">Voltar para a tela cheia</button>
+    </div>
+  </div>
+
+  <noscript><div class="card text">Este estudo precisa de JavaScript ativado.</div></noscript>
+
+  <script src="lib/jspsych.js"></script>
+  <script src="lib/plugin-html-button-response.js"></script>
+  <script src="lib/plugin-survey-html-form.js"></script>
+  <script src="lib/plugin-fullscreen.js"></script>
+  <script src="lib/plugin-html-audio-response.js"></script>
+  <script src="lib/jszip.min.js"></script>
+  <script src="js/plugin-timed-phase.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/sequence.js"></script>
+  <script src="js/stimuli.js"></script>
+  <script src="js/monitor.js"></script>
+  <script src="js/checks.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
