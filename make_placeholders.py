@@ -1,6 +1,11 @@
 """Gera estímulos placeholder para testar o fluxo do pré-piloto.
 
-Cria em stimuli/:
+As imagens S001-S035 e PR01 hoje são fotos do COCO (select_coco_images.py). Por isso
+este script nunca sobrescreve: pula todo arquivo que já existe em stimuli/ e só
+escreve manifest.csv se ele não existir. Para regenerar um placeholder, apague o
+arquivo antes.
+
+Cria em stimuli/ (só o que estiver faltando):
   - 35 imagens .jpg (S001-S035) e 35 vídeos .mp4 de 3 s (S036-S070), 512x512,
     H.264 sem áudio, cada um com forma/cor/movimento diferentes e um número
     discreto no canto;
@@ -225,31 +230,45 @@ def main():
     ffmpeg = find_ffmpeg(args.ffmpeg)
     OUT.mkdir(exist_ok=True)
 
+    def missing(path):
+        if path.exists():
+            print(f"{path.name} já existe, mantido")
+            return False
+        return True
+
     rows = []
     k = 0
     for i in range(args.n_images):
         k += 1
         sid = f"S{k:03d}"
-        make_image(i, sid, OUT / f"{sid}.jpg")
+        if missing(OUT / f"{sid}.jpg"):
+            make_image(i, sid, OUT / f"{sid}.jpg")
         rows.append([sid, f"{sid}.jpg", "image", f"item_{sid}",
                      f"placeholder: {SHAPES[i % len(SHAPES)]}"])
     for i in range(args.n_videos):
         k += 1
         sid = f"S{k:03d}"
-        shape, motion = make_video(i, sid, OUT / f"{sid}.mp4", ffmpeg)
+        shape, motion = SHAPES[(i * 7) % len(SHAPES)], MOTIONS[i % len(MOTIONS)]
+        if missing(OUT / f"{sid}.mp4"):
+            make_video(i, sid, OUT / f"{sid}.mp4", ffmpeg)
         rows.append([sid, f"{sid}.mp4", "video", f"item_{sid}", f"placeholder: {shape}/{motion}"])
 
     # prática: fora do conjunto principal (ids listados em config.json -> practice_stim_ids)
-    make_image(97, "PR01", OUT / "PR01.jpg")
+    if missing(OUT / "PR01.jpg"):
+        make_image(97, "PR01", OUT / "PR01.jpg")
     rows.append(["PR01", "PR01.jpg", "image", "item_PR01", "practice"])
-    make_video(98, "PR02", OUT / "PR02.mp4", ffmpeg, duration=4.0)
+    if missing(OUT / "PR02.mp4"):
+        make_video(98, "PR02", OUT / "PR02.mp4", ffmpeg, duration=4.0)
     rows.append(["PR02", "PR02.mp4", "video", "item_PR02",
                  "practice; 4 s de propósito para testar o corte em 3 s"])
 
-    with open(OUT / "manifest.csv", "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["stim_id", "file", "type", "item_id", "notes"])
-        w.writerows(rows)
+    if (OUT / "manifest.csv").exists():
+        print("manifest.csv já existe, mantido")
+    else:
+        with open(OUT / "manifest.csv", "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["stim_id", "file", "type", "item_id", "notes"])
+            w.writerows(rows)
 
     total = sum(p.stat().st_size for p in OUT.iterdir() if p.suffix in (".jpg", ".mp4"))
     print(f"{len(rows)} estímulos em {OUT} ({total / 1e6:.1f} MB)")

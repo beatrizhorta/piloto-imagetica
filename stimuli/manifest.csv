@@ -1,73 +1,73 @@
 stim_id,file,type,item_id,notes
-S001,S001.jpg,image,item_S001,placeholder: circle
-S002,S002.jpg,image,item_S002,placeholder: square
-S003,S003.jpg,image,item_S003,placeholder: triangle
-S004,S004.jpg,image,item_S004,placeholder: star
-S005,S005.jpg,image,item_S005,placeholder: hexagon
-S006,S006.jpg,image,item_S006,placeholder: cross
-S007,S007.jpg,image,item_S007,placeholder: ring
-S008,S008.jpg,image,item_S008,placeholder: diamond
-S009,S009.jpg,image,item_S009,placeholder: crescent
-S010,S010.jpg,image,item_S010,placeholder: arrow
-S011,S011.jpg,image,item_S011,placeholder: ellipse
-S012,S012.jpg,image,item_S012,placeholder: pentagon
-S013,S013.jpg,image,item_S013,placeholder: circle
-S014,S014.jpg,image,item_S014,placeholder: square
-S015,S015.jpg,image,item_S015,placeholder: triangle
-S016,S016.jpg,image,item_S016,placeholder: star
-S017,S017.jpg,image,item_S017,placeholder: hexagon
-S018,S018.jpg,image,item_S018,placeholder: cross
-S019,S019.jpg,image,item_S019,placeholder: ring
-S020,S020.jpg,image,item_S020,placeholder: diamond
-S021,S021.jpg,image,item_S021,placeholder: crescent
-S022,S022.jpg,image,item_S022,placeholder: arrow
-S023,S023.jpg,image,item_S023,placeholder: ellipse
-S024,S024.jpg,image,item_S024,placeholder: pentagon
-S025,S025.jpg,image,item_S025,placeholder: circle
-S026,S026.jpg,image,item_S026,placeholder: square
-S027,S027.jpg,image,item_S027,placeholder: triangle
-S028,S028.jpg,image,item_S028,placeholder: star
-S029,S029.jpg,image,item_S029,placeholder: hexagon
-S030,S030.jpg,image,item_S030,placeholder: cross
-S031,S031.jpg,image,item_S031,placeholder: ring
-S032,S032.jpg,image,item_S032,placeholder: diamond
-S033,S033.jpg,image,item_S033,placeholder: crescent
-S034,S034.jpg,image,item_S034,placeholder: arrow
-S035,S035.jpg,image,item_S035,placeholder: ellipse
-S036,S036.mp4,video,item_S036,placeholder: circle/horizontal
-S037,S037.mp4,video,item_S037,placeholder: diamond/vertical
-S038,S038.mp4,video,item_S038,placeholder: triangle/orbit
-S039,S039.mp4,video,item_S039,placeholder: arrow/rotate
-S040,S040.mp4,video,item_S040,placeholder: hexagon/pulse
-S041,S041.mp4,video,item_S041,placeholder: pentagon/bounce
-S042,S042.mp4,video,item_S042,placeholder: ring/zigzag
-S043,S043.mp4,video,item_S043,placeholder: square/spiral
-S044,S044.mp4,video,item_S044,placeholder: crescent/figure8
-S045,S045.mp4,video,item_S045,placeholder: star/horizontal
-S046,S046.mp4,video,item_S046,placeholder: ellipse/vertical
-S047,S047.mp4,video,item_S047,placeholder: cross/orbit
-S048,S048.mp4,video,item_S048,placeholder: circle/rotate
-S049,S049.mp4,video,item_S049,placeholder: diamond/pulse
-S050,S050.mp4,video,item_S050,placeholder: triangle/bounce
-S051,S051.mp4,video,item_S051,placeholder: arrow/zigzag
-S052,S052.mp4,video,item_S052,placeholder: hexagon/spiral
-S053,S053.mp4,video,item_S053,placeholder: pentagon/figure8
-S054,S054.mp4,video,item_S054,placeholder: ring/horizontal
-S055,S055.mp4,video,item_S055,placeholder: square/vertical
-S056,S056.mp4,video,item_S056,placeholder: crescent/orbit
-S057,S057.mp4,video,item_S057,placeholder: star/rotate
-S058,S058.mp4,video,item_S058,placeholder: ellipse/pulse
-S059,S059.mp4,video,item_S059,placeholder: cross/bounce
-S060,S060.mp4,video,item_S060,placeholder: circle/zigzag
-S061,S061.mp4,video,item_S061,placeholder: diamond/spiral
-S062,S062.mp4,video,item_S062,placeholder: triangle/figure8
-S063,S063.mp4,video,item_S063,placeholder: arrow/horizontal
-S064,S064.mp4,video,item_S064,placeholder: hexagon/vertical
-S065,S065.mp4,video,item_S065,placeholder: pentagon/orbit
-S066,S066.mp4,video,item_S066,placeholder: ring/rotate
-S067,S067.mp4,video,item_S067,placeholder: square/pulse
-S068,S068.mp4,video,item_S068,placeholder: crescent/bounce
-S069,S069.mp4,video,item_S069,placeholder: star/zigzag
-S070,S070.mp4,video,item_S070,placeholder: ellipse/spiral
-PR01,PR01.jpg,image,item_PR01,practice
-PR02,PR02.mp4,video,item_PR02,practice; 4 s de propósito para testar o corte em 3 s
+S001,S001.jpg,image,item_S001,coco2017val:134722
+S002,S002.jpg,image,item_S002,coco2017val:397354
+S003,S003.jpg,image,item_S003,coco2017val:22705
+S004,S004.jpg,image,item_S004,coco2017val:202339
+S005,S005.jpg,image,item_S005,coco2017val:232088
+S006,S006.jpg,image,item_S006,coco2017val:579307
+S007,S007.jpg,image,item_S007,coco2017val:192191
+S008,S008.jpg,image,item_S008,coco2017val:7574
+S009,S009.jpg,image,item_S009,coco2017val:100238
+S010,S010.jpg,image,item_S010,coco2017val:503755
+S011,S011.jpg,image,item_S011,coco2017val:309938
+S012,S012.jpg,image,item_S012,coco2017val:493864
+S013,S013.jpg,image,item_S013,coco2017val:374369
+S014,S014.jpg,image,item_S014,coco2017val:382734
+S015,S015.jpg,image,item_S015,coco2017val:173830
+S016,S016.jpg,image,item_S016,coco2017val:374545
+S017,S017.jpg,image,item_S017,coco2017val:579321
+S018,S018.jpg,image,item_S018,coco2017val:248314
+S019,S019.jpg,image,item_S019,coco2017val:234660
+S020,S020.jpg,image,item_S020,coco2017val:475678
+S021,S021.jpg,image,item_S021,coco2017val:217425
+S022,S022.jpg,image,item_S022,coco2017val:177065
+S023,S023.jpg,image,item_S023,coco2017val:28809
+S024,S024.jpg,image,item_S024,coco2017val:76547
+S025,S025.jpg,image,item_S025,coco2017val:90108
+S026,S026.jpg,image,item_S026,coco2017val:43737
+S027,S027.jpg,image,item_S027,coco2017val:467848
+S028,S028.jpg,image,item_S028,coco2017val:477288
+S029,S029.jpg,image,item_S029,coco2017val:364322
+S030,S030.jpg,image,item_S030,coco2017val:495448
+S031,S031.jpg,image,item_S031,coco2017val:76211
+S032,S032.jpg,image,item_S032,coco2017val:414795
+S033,S033.jpg,image,item_S033,coco2017val:75612
+S034,S034.jpg,image,item_S034,coco2017val:274272
+S035,S035.jpg,image,item_S035,coco2017val:166277
+S036,S036.mp4,video,item_S036,pixabay:11006; pessoas_cotidiano
+S037,S037.mp4,video,item_S037,pixabay:8667; pessoas_cotidiano
+S038,S038.mp4,video,item_S038,pixabay:24603; pessoas_cotidiano
+S039,S039.mp4,video,item_S039,pixabay:201013; pessoas_cotidiano
+S040,S040.mp4,video,item_S040,pixabay:169349; pessoas_cotidiano
+S041,S041.mp4,video,item_S041,pixabay:208387; esportes
+S042,S042.mp4,video,item_S042,pixabay:44373; esportes
+S043,S043.mp4,video,item_S043,pixabay:92838; esportes
+S044,S044.mp4,video,item_S044,pixabay:10024; esportes
+S045,S045.mp4,video,item_S045,pixabay:214592; esportes
+S046,S046.mp4,video,item_S046,pixabay:139; animais
+S047,S047.mp4,video,item_S047,pixabay:135727; animais
+S048,S048.mp4,video,item_S048,pixabay:306709; animais
+S049,S049.mp4,video,item_S049,pixabay:37131; animais
+S050,S050.mp4,video,item_S050,pixabay:65438; animais
+S051,S051.mp4,video,item_S051,pixabay:186950; veiculos_transporte
+S052,S052.mp4,video,item_S052,pixabay:147026; veiculos_transporte
+S053,S053.mp4,video,item_S053,pixabay:41368; veiculos_transporte
+S054,S054.mp4,video,item_S054,pixabay:33014; veiculos_transporte
+S055,S055.mp4,video,item_S055,pixabay:383827; veiculos_transporte
+S056,S056.mp4,video,item_S056,pixabay:76681; agua_natureza
+S057,S057.mp4,video,item_S057,pixabay:31393; agua_natureza
+S058,S058.mp4,video,item_S058,pixabay:145258; agua_natureza
+S059,S059.mp4,video,item_S059,pixabay:208314; agua_natureza
+S060,S060.mp4,video,item_S060,pixabay:24216; agua_natureza
+S061,S061.mp4,video,item_S061,pixabay:7263; maos_objetos
+S062,S062.mp4,video,item_S062,pixabay:63771; maos_objetos
+S063,S063.mp4,video,item_S063,pixabay:148541; maos_objetos
+S064,S064.mp4,video,item_S064,pixabay:172293; maos_objetos
+S065,S065.mp4,video,item_S065,pixabay:34818; maos_objetos
+S066,S066.mp4,video,item_S066,pixabay:6407; cenas_urbanas
+S067,S067.mp4,video,item_S067,pixabay:275107; cenas_urbanas
+S068,S068.mp4,video,item_S068,pixabay:35841; cenas_urbanas
+S069,S069.mp4,video,item_S069,pixabay:329674; cenas_urbanas
+S070,S070.mp4,video,item_S070,pixabay:173363; cenas_urbanas
+PR01,PR01.jpg,image,item_PR01,coco2017val:257896
+PR02,PR02.mp4,video,item_PR02,pixabay:275516; esportes; practice; 4 s de propósito para testar o corte em 3 s
