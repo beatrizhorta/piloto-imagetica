@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "0.7.0";
+  const APP_VERSION = "0.8.0";
   const params = new URLSearchParams(location.search);
   const $ = (sel, root) => (root || document).querySelector(sel);
 
@@ -29,7 +29,8 @@
     micInfo: null,
     checks: null,
     micTests: [],
-    phaseOnset: null,
+    beepTests: 0,
+    phaseOnset: null, // onset da tela de pausa (checkpoint)
   };
 
   // ---------- utilidades ----------
@@ -169,12 +170,13 @@
       is_repeat: plan.is_repeat,
       first_presentation_trial: plan.first_presentation_trial,
       lag: plan.lag,
-      description_mode: plan.description_mode,
       vividness: null, vividness_rt_ms: null,
       dynamism: null, dynamism_rt_ms: null,
       recognized_old: null, recognition_correct: null, recognition_rt_ms: null,
-      description_text: null, audio_file: null, audio_duration_ms: null, audio_bytes: null, description_rt_ms: null,
-      stim_onset_ts: null, mask_onset_ts: null, imagery_onset_ts: null, response_onset_ts: null,
+      audio_file: null, audio_duration_ms: null, audio_bytes: null, record_error: null,
+      stim_onset_ts: null, mask_onset_ts: null, mask_end_ts: null, imagery_onset_ts: null, imagery_end_ts: null, response_onset_ts: null,
+      imagery_start_gap_ms: null,
+      beep_start_ts: null, beep_end_ts: null, audio_recorder_start_ts: null, audio_onset_offset_ms: null,
       stim_duration_measured_ms: null, mask_duration_measured_ms: null, imagery_duration_measured_ms: null,
       stim_onset_source: null,
       video_native_duration_ms: inf.native_duration_ms || null,
@@ -192,25 +194,40 @@
   function computeDurations(c) {
     const d = (a, b) => (a !== null && b !== null ? Math.round((b - a) * 10) / 10 : null);
     c.stim_duration_measured_ms = d(c.stim_onset_ts, c.mask_onset_ts);
-    c.mask_duration_measured_ms = d(c.mask_onset_ts, c.imagery_onset_ts);
-    c.imagery_duration_measured_ms = d(c.imagery_onset_ts, c.response_onset_ts);
+    // Máscara e imaginação são medidas até o pedido de fim delas mesmas, não até o onset da
+    // etapa seguinte. Entre o fim da máscara e o onset da imaginação há ~50 ms de tela vazia:
+    // é o tempo que o MediaRecorder leva para confirmar o start, e a tela só aparece depois
+    // dele, para a janela inteira caber no arquivo de áudio. Esse atraso fica registrado em
+    // imagery_start_gap_ms, em vez de inflar a duração da máscara.
+    c.mask_duration_measured_ms = d(c.mask_onset_ts, c.mask_end_ts !== null ? c.mask_end_ts : c.imagery_onset_ts);
+    c.imagery_start_gap_ms = d(c.mask_end_ts, c.imagery_onset_ts);
+    // a tela de vividez (response_onset_ts) só aparece depois de o arquivo de áudio ficar pronto
+    c.imagery_duration_measured_ms = d(c.imagery_onset_ts, c.imagery_end_ts !== null ? c.imagery_end_ts : c.response_onset_ts);
   }
 
-  function saveTrial(c, audioBlob) {
+  function saveTrial(c) {
     const sid = state.session_id;
     const n = state.nCompleted;
     return enqueue(async () => {
-      if (audioBlob) {
-        c.audio_bytes = audioBlob.size;
-        c.audio_duration_ms = await audioDurationMs(audioBlob);
-        await PilotDB.addItem(sid, "audio", { filename: c.audio_file, trial_index: c.trial_index, is_practice: c.is_practice }, audioBlob);
-      }
       await PilotDB.addItem(sid, "trial", c);
       await PilotDB.updateSession(sid, { n_trials_completed: n, last_activity_ts: c.trial_end_ts, last_activity_at: new Date().toISOString() });
     });
   }
 
-  function completeTrial(audioBlob) {
+  // O áudio é salvo assim que a janela de imaginação termina, antes das perguntas: se o
+  // participante encerrar no meio delas, a descrição já está no banco. A fila de gravação
+  // (enqueue) garante que audio_bytes/audio_duration_ms estejam prontos quando o trial é salvo.
+  function saveAudio(c, blob) {
+    const sid = state.session_id;
+    const meta = { filename: c.audio_file, trial_index: c.trial_index, is_practice: c.is_practice };
+    return enqueue(async () => {
+      c.audio_bytes = blob.size;
+      c.audio_duration_ms = await audioDurationMs(blob);
+      await PilotDB.addItem(sid, "audio", meta, blob);
+    });
+  }
+
+  function completeTrial() {
     const c = state.cur;
     if (!c) return;
     state.cur = null;
@@ -220,7 +237,7 @@
     computeDurations(c);
     if (!c.is_practice) state.nCompleted++;
     updateProgress(c.is_practice);
-    saveTrial(c, audioBlob);
+    saveTrial(c);
   }
 
   function abortCurrentTrial() {
@@ -231,7 +248,7 @@
     c.trial_end_ts = now();
     c.trial_duration_ms = Math.round((c.trial_end_ts - c.trial_start_ts) * 10) / 10;
     computeDurations(c);
-    saveTrial(c, null);
+    saveTrial(c);
   }
 
   function recordSkipped(plan, isPractice, inf) {
@@ -240,11 +257,11 @@
       is_practice: isPractice ? 1 : 0, status: "skipped_load_error", block: plan.block,
       stim_id: plan.stim_id, item_id: plan.item_id, stim_type: plan.stim_type, file: plan.file,
       is_repeat: plan.is_repeat, first_presentation_trial: plan.first_presentation_trial, lag: plan.lag,
-      description_mode: plan.description_mode, trial_start_ts: now(), trial_end_ts: now(),
+      trial_start_ts: now(), trial_end_ts: now(),
       stim_load_ms: inf ? inf.load_ms : null, load_error: inf ? inf.error : "não carregado",
       n_focus_losses: 0, focus_lost_ms: 0,
     };
-    saveTrial(c, null);
+    saveTrial(c);
   }
 
   let decodeCtx = null;
@@ -256,13 +273,6 @@
     } catch (e) {
       return null;
     }
-  }
-
-  function base64ToBlob(b64, type) {
-    const bin = atob(b64);
-    const arr = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-    return new Blob([arr], { type });
   }
 
   // ---------- telas de resposta ----------
@@ -314,72 +324,14 @@
       },
       on_finish: (d) => {
         state.keyMap = null;
-        if (d.aborted || !state.cur || d.response === null) return;
-        const old = d.response === 0 ? 1 : 0;
-        state.cur.recognized_old = old;
-        state.cur.recognition_correct = old === state.cur.is_repeat ? 1 : 0;
-        state.cur.recognition_rt_ms = d.rt;
-      },
-    };
-  }
-
-  function writtenNode() {
-    return {
-      type: jsPsychSurveyHtmlForm,
-      preamble: `<div class="question">${cfg.description_written_prompt}</div>`,
-      html: '<textarea id="desc-text" name="description" rows="6" required></textarea>',
-      button_label: "Continuar",
-      autofocus: "desc-text",
-      on_start: () => {
-        setPhase("description");
-        setChrome({ progress: true, fatigue: true });
-      },
-      on_load: () => {
-        state.phaseOnset = performance.now();
-        const ta = $("#desc-text");
-        const check = () => ta.setCustomValidity(ta.value.trim() ? "" : "Escreva uma descrição antes de continuar.");
-        ta.addEventListener("input", check);
-        check();
-      },
-      on_finish: (d) => {
         if (d.aborted || !state.cur) return;
-        state.cur.description_text = (d.response.description || "").trim();
-        state.cur.description_rt_ms = d.rt;
-        completeTrial(null);
-      },
-    };
-  }
-
-  function audioNode() {
-    return {
-      type: jsPsychHtmlAudioResponse,
-      stimulus: `<div class="question">${cfg.description_audio_prompt}</div><div class="rec-indicator"><span class="rec-dot"></span>Gravando…</div>`,
-      recording_duration: cfg.audio_max_ms,
-      show_done_button: true,
-      done_button_label: "Parar gravação",
-      allow_playback: true,
-      record_again_button_label: "Gravar de novo",
-      accept_button_label: "Continuar",
-      on_start: () => {
-        setPhase("description");
-        setChrome({ progress: true, fatigue: true });
-      },
-      on_load: () => {
-        state.phaseOnset = performance.now();
-      },
-      on_finish: (d) => {
-        if (d.aborted || !state.cur) return;
-        const c = state.cur;
-        c.description_rt_ms = Math.round(performance.now() - state.phaseOnset);
-        let blob = null;
-        if (d.response) {
-          blob = base64ToBlob(d.response, "audio/webm");
-          d.response = null; // não manter o áudio duplicado na memória do jsPsych
-          c.audio_file = c.is_practice
-            ? `${state.pid}_pt${String(c.trial_index).padStart(2, "0")}_${c.stim_id}.webm`
-            : `${state.pid}_t${String(c.trial_index).padStart(3, "0")}_${c.stim_id}.webm`;
+        if (d.response !== null) {
+          const old = d.response === 0 ? 1 : 0;
+          state.cur.recognized_old = old;
+          state.cur.recognition_correct = old === state.cur.is_repeat ? 1 : 0;
+          state.cur.recognition_rt_ms = d.rt;
         }
-        completeTrial(blob);
+        completeTrial();
       },
     };
   }
@@ -390,7 +342,6 @@
   // estrutura da timeline desde o início; por isso o nó lê o plano sob demanda (getPlan).
   function trialNode(getPlan, isPractice) {
     const size = cfg.stim_size_px;
-    const mode = () => (getPlan() || {}).description_mode;
     const phases = [
       {
         type: jsPsychTimedPhase,
@@ -426,26 +377,49 @@
         on_finish: (d) => {
           if (!state.cur || d.aborted) return;
           state.cur.mask_onset_ts = rel(d.onset_ts);
+          state.cur.mask_end_ts = rel(d.end_request_ts);
           state.cur.mask_frames = d.mask_frames;
         },
       },
+      // imaginação e descrição em voz alta na mesma janela: bipe de abertura, 20 s gravando,
+      // bipe de fechamento. O participante fica de olhos fechados do primeiro ao segundo bipe.
       {
         type: jsPsychTimedPhase,
         kind: "imagery",
         duration: cfg.imagery_duration_ms,
         size,
-        html: cfg.texts.imagery_command,
+        html: `${cfg.texts.imagery_command}<div class="rec-indicator"><span class="rec-dot"></span>Gravando…</div>`,
+        record: true,
+        recorder: () => state.recorder,
+        audio_mime: PilotChecks.AUDIO_MIME,
+        beep_start: cfg.beep_start,
+        beep_end: cfg.beep_end,
         on_start: () => setPhase("imagery"),
         on_finish: (d) => {
           if (!state.cur || d.aborted) return;
-          state.cur.imagery_onset_ts = rel(d.onset_ts);
+          const c = state.cur;
+          c.imagery_onset_ts = rel(d.onset_ts);
+          c.imagery_end_ts = rel(d.end_request_ts);
+          c.beep_start_ts = rel(d.beep_start_ts === undefined ? null : d.beep_start_ts);
+          c.beep_end_ts = rel(d.beep_end_ts === undefined ? null : d.beep_end_ts);
+          c.audio_recorder_start_ts = rel(d.recorder_start_ts === undefined ? null : d.recorder_start_ts);
+          if (c.imagery_onset_ts !== null && c.audio_recorder_start_ts !== null) {
+            c.audio_onset_offset_ms = Math.round((c.imagery_onset_ts - c.audio_recorder_start_ts) * 10) / 10;
+          }
+          c.record_error = d.record_error || null;
+          const blob = d.audio_blob || null;
+          d.audio_blob = null; // não manter o áudio duplicado na memória do jsPsych
+          if (blob && blob.size) {
+            c.audio_file = c.is_practice
+              ? `${state.pid}_pt${String(c.trial_index).padStart(2, "0")}_${c.stim_id}.webm`
+              : `${state.pid}_t${String(c.trial_index).padStart(3, "0")}_${c.stim_id}.webm`;
+            saveAudio(c, blob);
+          }
         },
       },
       scaleNode("vividness", cfg.vividness_question, cfg.vividness_anchors),
       scaleNode("dynamism", cfg.dynamism_question, cfg.dynamism_anchors),
       recognitionNode(),
-      { timeline: [writtenNode()], conditional_function: () => !state.stop && mode() !== "audio" },
-      { timeline: [audioNode()], conditional_function: () => !state.stop && mode() === "audio" },
     ];
     return {
       timeline: phases,
@@ -619,7 +593,6 @@
       return {
         trial_index: i + 1, block: 0, stim_id: s.stim_id, item_id: s.item_id, stim_type: s.type, file: s.file,
         is_repeat: 0, first_presentation_trial: i + 1, lag: 0,
-        description_mode: cfg.practice_description_modes[i % cfg.practice_description_modes.length],
       };
     });
     const session = {
@@ -673,11 +646,9 @@
           render(res.concat([micPending]));
           let mic = state.micInfo && state.micInfo.ok ? state.micInfo : await PilotChecks.requestMic();
           if (mic.ok && !state.recorder) {
+            // gravador único da sessão (mono, Opus, bitrate configurável), reaproveitado a cada
+            // janela de imaginação pelo timed-phase (ver js/plugin-timed-phase.js)
             state.recorder = PilotChecks.makeRecorder(mic.stream, cfg.audio_bitrate_bps);
-            // o html-audio-response usa o gravador registrado no jsPsych; registramos o nosso
-            // (mono, Opus, bitrate configurável) em vez do padrão de initializeMicrophoneRecorder
-            const rec = state.recorder;
-            jsPsych.pluginAPI.getMicrophoneRecorder = () => rec;
           }
           state.micInfo = mic;
           const all = res.concat([mic]);
@@ -711,19 +682,43 @@
   function micTestNode() {
     return {
       type: jsPsychHtmlButtonResponse,
-      stimulus: `<div class="card text"><h2>Teste do microfone</h2><p>Clique em <b>Gravar 3 segundos</b> e fale qualquer frase (por exemplo, conte de 1 a 5). Depois, a gravação será tocada de volta para você.</p><p><button type="button" class="jspsych-btn" id="mic-rec">Gravar 3 segundos</button></p><div class="meter"><div id="mic-level"></div></div><p id="mic-status" class="status"></p><audio id="mic-play" controls hidden></audio><p id="mic-help" class="req-help" hidden>Se não ouviu nada: confira se o volume do computador está ligado, se o microfone certo está selecionado (ícone à esquerda do endereço do site) e grave de novo.</p></div>`,
-      choices: ["Ouvi minha voz, continuar"],
+      stimulus: `<div class="card text"><h2>Teste do microfone</h2><p>Clique em <b>Gravar 3 segundos</b> e fale qualquer frase (por exemplo, conte de 1 a 5). Depois, a gravação será tocada de volta para você.</p><p><button type="button" class="jspsych-btn" id="mic-rec">Gravar 3 segundos</button></p><div class="meter"><div id="mic-level"></div></div><p id="mic-status" class="status"></p><audio id="mic-play" controls hidden></audio><p id="mic-help" class="req-help" hidden>Se não ouviu nada: confira se o volume do computador está ligado, se o microfone certo está selecionado (ícone à esquerda do endereço do site) e grave de novo.</p><hr><h3>Avisos sonoros</h3><p>Durante o estudo, um <b>bipe agudo</b> avisa quando começa o período de projetar mentalmente e descrever, e um <b>bipe grave</b> avisa quando ele termina. Você vai ficar de olhos fechados entre os dois, então precisa ouvi-los bem.</p><p><button type="button" class="jspsych-btn" id="beep-test">Ouvir os dois bipes</button></p><p id="beep-status" class="status"></p></div>`,
+      choices: ["Ouvi minha voz e os bipes, continuar"],
       on_load: () => {
         const btn = $("#jspsych-html-button-response-button-0 button");
-        btn.disabled = true;
         const stream = state.micInfo.stream;
         const recBtn = $("#mic-rec");
         const status = $("#mic-status");
         const audio = $("#mic-play");
         let actx = null;
+        // o Continuar só libera depois de ouvir a própria voz e os dois bipes
+        let heardVoice = false, heardBeep = false, busy = false;
+        const sync = () => { btn.disabled = busy || !heardVoice || !heardBeep; };
+        sync();
+
+        const beepBtn = $("#beep-test");
+        const beepStatus = $("#beep-status");
+        beepBtn.addEventListener("click", async () => {
+          beepBtn.disabled = true;
+          busy = true;
+          sync();
+          beepStatus.textContent = "Tocando o bipe de início e, depois, o de fim…";
+          await PilotBeep.demo(cfg.beep_start, cfg.beep_end);
+          state.beepTests++;
+          busy = false;
+          heardBeep = true;
+          sync();
+          beepBtn.disabled = false;
+          beepBtn.textContent = "Ouvir de novo";
+          beepStatus.innerHTML = state.beepTests > 1
+            ? "Se ainda não ouviu os dois bipes, <b>aumente o volume</b> do computador e toque de novo."
+            : "Ouviu os dois? O primeiro é mais agudo e curto; o segundo, mais grave e longo. Se não ouviu, aumente o volume e toque de novo.";
+        });
+
         recBtn.addEventListener("click", async () => {
           recBtn.disabled = true;
-          btn.disabled = true;
+          busy = true;
+          sync();
           audio.hidden = true;
           // medidor de nível, para mostrar que o microfone está captando
           let analyser = null, raf = null, peak = 0;
@@ -769,16 +764,19 @@
           status.innerHTML = "Ouça a gravação abaixo. Se ouviu sua voz, clique em <b>Ouvi minha voz, continuar</b>. Se não, clique em <b>Gravar de novo</b>.";
           recBtn.textContent = "Gravar de novo";
           recBtn.disabled = false;
+          busy = false;
+          sync();
           $("#mic-help").hidden = state.micTests.length < 2;
           audio.play().catch(() => {});
-          // só libera depois que a gravação começou a tocar
-          audio.addEventListener("play", () => (btn.disabled = false), { once: true });
+          // só conta como ouvida depois que a gravação começou a tocar
+          audio.addEventListener("play", () => { heardVoice = true; sync(); }, { once: true });
         });
       },
       on_finish: () => {
         const sid = state.session_id;
         const tests = state.micTests.slice();
-        enqueue(() => PilotDB.updateSession(sid, { mic_tests: tests }));
+        const beeps = state.beepTests;
+        enqueue(() => PilotDB.updateSession(sid, { mic_tests: tests, n_beep_tests: beeps }));
       },
     };
   }
@@ -809,18 +807,21 @@
       textQ("vividness_definition_comment", "Comentário sobre a definição de vividez (opcional):") +
       likert("dynamism_question_clarity", "4. A pergunta sobre dinamismo (movimento) da imagem imaginada foi clara?", "1 = nada clara", "5 = muito clara") +
       textQ("dynamism_question_comment", "Comentário sobre a pergunta de dinamismo (opcional):") +
-      choice("imagery_time", "5. O tempo de imaginação (6 s) foi:", [["curto_demais", "Curto demais"], ["ok", "Ok"], ["longo_demais", "Longo demais"]], true) +
+      choice("imagery_time", `5. O tempo para projetar mentalmente e descrever (${Math.round(cfg.imagery_duration_ms / 1000)} s) foi:`, [["curto_demais", "Curto demais"], ["ok", "Ok"], ["longo_demais", "Longo demais"]], true) +
       choice("stim_mask_time", "6. A duração do estímulo (3 s) e da máscara de chuvisco (2 s) foi:", [["rapida_demais", "Rápida demais"], ["ok", "Ok"], ["longa_demais", "Longa demais"]], true) +
       likert("mask_annoyance", "7. Quanto a máscara de chuvisco incomodou?", "1 = nada", "5 = muito") +
-      choice("description_preference", "8. Você preferiu descrever por escrito ou em áudio?", [["escrita", "Por escrito"], ["audio", "Em áudio"], ["indiferente", "Tanto faz"]], true) +
-      textQ("description_preference_why", "Por quê?") +
-      likert("recognition_difficulty", "9. Quão difícil foi julgar se você já tinha visto o estímulo antes?", "1 = muito fácil", "5 = muito difícil") +
-      textQ("fatigue_onset", "10. Em que momento você começou a sentir cansaço?") +
-      `<fieldset class="text"><legend>11. Quantos estímulos você acha viáveis numa sessão?</legend><input type="number" name="feasible_n_stimuli" min="0" max="1000" step="1" required></fieldset>` +
-      choice("interruptions", "12. Houve interrupções no ambiente?", [["nao", "Não"], ["sim", "Sim"]], true) +
+      choice("simultaneous_description", "8. Descrever em voz alta ao mesmo tempo que projetava mentalmente a imagem:", [["atrapalhou", "Atrapalhou a imagem mental"], ["indiferente", "Não fez diferença"], ["ajudou", "Ajudou a manter a imagem"]], true) +
+      textQ("simultaneous_description_why", "Por quê?") +
+      likert("beep_clarity", "9. Os bipes de início e de fim foram fáceis de ouvir e de entender?", "1 = nada fáceis", "5 = muito fáceis") +
+      textQ("beep_comment", "Comentário sobre os bipes (opcional):") +
+      choice("eyes_closed", "10. Você conseguiu ficar de olhos fechados do primeiro ao segundo bipe?", [["sempre", "Em todas as rodadas"], ["maioria", "Na maioria"], ["poucas", "Em poucas"], ["nunca", "Em nenhuma"]], true) +
+      likert("recognition_difficulty", "11. Quão difícil foi julgar se você já tinha visto o estímulo antes?", "1 = muito fácil", "5 = muito difícil") +
+      textQ("fatigue_onset", "12. Em que momento você começou a sentir cansaço?") +
+      `<fieldset class="text"><legend>13. Quantos estímulos você acha viáveis numa sessão?</legend><input type="number" name="feasible_n_stimuli" min="0" max="1000" step="1" required></fieldset>` +
+      choice("interruptions", "14. Houve interrupções no ambiente?", [["nao", "Não"], ["sim", "Sim"]], true) +
       textQ("interruptions_text", "Se sim, quais?") +
-      textQ("technical_problems", "13. Teve algum problema técnico? Qual?") +
-      textQ("comments", "14. Comentários livres sobre o piloto:", 4) +
+      textQ("technical_problems", "15. Teve algum problema técnico? Qual?") +
+      textQ("comments", "16. Comentários livres sobre o piloto:", 4) +
       extras;
     return {
       type: jsPsychSurveyHtmlForm,

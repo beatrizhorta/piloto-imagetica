@@ -2,8 +2,8 @@
 //
 // Cada mini-bloco de `block_size` trials é balanceado quanto a:
 //   - tipo do estímulo (imagem/vídeo): metade cada (sobra alterna entre blocos);
-//   - novo/repetido: round(block_size * repeat_proportion) repetições;
-//   - modalidade da descrição (escrita/áudio): metade cada, cruzada com o tipo.
+//   - novo/repetido: round(block_size * repeat_proportion) repetições.
+// A descrição é sempre em voz alta (áudio), feita durante a janela de imaginação.
 // Repetição = o mesmo estímulo (mesmo arquivo) já apresentado; cada estímulo se
 // repete no máximo uma vez, com lag (diferença de trial_index) entre min_lag e max_lag.
 (function (global) {
@@ -45,7 +45,6 @@
     const seq = [];
     const open = []; // apresentados pela primeira vez e ainda não repetidos: {stim, t}
     let extraImageNext = rng() < 0.5; // quem leva a sobra quando o bloco tem tamanho ímpar
-    const writtenBalance = { image: 0, video: 0 }; // escritas - áudios acumulado por tipo
 
     for (let b = 0; b * B < N; b++) {
       const size = Math.min(B, N - b * B);
@@ -95,28 +94,6 @@
         block.push(entry);
       }
 
-      // modalidade da descrição: metade escrita no bloco, cruzada com o tipo
-      const byType = { image: [], video: [] };
-      block.forEach((e, i) => byType[e.stim.type].push(i));
-      const mode = new Array(size);
-      let writtenLeft = Math.floor(size / 2) + (size % 2 && rng() < 0.5 ? 1 : 0);
-      const order = shuffle(["image", "video"], rng);
-      order.forEach((ty, k) => {
-        const idx = shuffle(byType[ty], rng);
-        let w;
-        if (k === 0) {
-          const half = idx.length / 2;
-          // arredonda a favor de quem está atrás no acumulado
-          w = Number.isInteger(half) ? half : writtenBalance[ty] <= 0 ? Math.ceil(half) : Math.floor(half);
-          w = Math.min(w, writtenLeft);
-        } else {
-          w = Math.min(writtenLeft, idx.length);
-        }
-        writtenLeft -= w;
-        idx.forEach((pos, j) => (mode[pos] = j < w ? "written" : "audio"));
-        writtenBalance[ty] += w - (idx.length - w);
-      });
-
       block.forEach((e, i) => {
         seq.push({
           trial_index: t0 + i,
@@ -128,7 +105,6 @@
           is_repeat: e.is_repeat,
           first_presentation_trial: e.first_presentation_trial,
           lag: e.lag,
-          description_mode: mode[i],
         });
       });
     }
@@ -174,9 +150,8 @@
     const repeatedOnce = new Set();
     const blocks = {};
     seq.forEach((t) => {
-      const b = (blocks[t.block] = blocks[t.block] || { n: 0, image: 0, video: 0, repeat: 0, written: 0, audio: 0, image_written: 0, video_written: 0 });
-      b.n++; b[t.stim_type]++; b[t.description_mode]++;
-      if (t.description_mode === "written") b[t.stim_type + "_written"]++;
+      const b = (blocks[t.block] = blocks[t.block] || { n: 0, image: 0, video: 0, repeat: 0 });
+      b.n++; b[t.stim_type]++;
       if (t.is_repeat) {
         b.repeat++;
         if (!seen.has(t.stim_id)) problems.push(`trial ${t.trial_index}: repetição sem apresentação anterior`);
@@ -195,9 +170,6 @@
       const expRep = Math.round(b.n * cfg.repeat_proportion);
       if (b.repeat !== expRep) problems.push(`bloco ${k}: ${b.repeat} repetições (esperado ${expRep})`);
       if (Math.abs(b.image - b.video) > 1) problems.push(`bloco ${k}: tipo desbalanceado (${b.image} img / ${b.video} vid)`);
-      if (Math.abs(b.written - b.audio) > 1) problems.push(`bloco ${k}: descrição desbalanceada (${b.written} escrita / ${b.audio} áudio)`);
-      if (Math.abs(2 * b.image_written - b.image) > 1 || Math.abs(2 * b.video_written - b.video) > 1)
-        problems.push(`bloco ${k}: modalidade não cruzada com o tipo`);
     });
     return { ok: problems.length === 0, problems, blocks };
   }

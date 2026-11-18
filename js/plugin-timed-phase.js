@@ -4,6 +4,11 @@
 // O onset é medido no primeiro frame em que a etapa aparece (requestAnimationFrame;
 // para vídeos, requestVideoFrameCallback do primeiro frame do vídeo). O fim é agendado
 // a partir desse onset, de modo que onset(etapa seguinte) - onset(etapa) ≈ duração pedida.
+//
+// Na etapa de imaginação (kind = "imagery") a descrição em voz alta acontece ao mesmo
+// tempo: com record = true, o MediaRecorder é ligado antes de a tela aparecer, um bipe
+// (beep_start) toca no onset, outro (beep_end) toca no fim, e o áudio da janela inteira
+// volta em data.audio_blob.
 var jsPsychTimedPhase = (function (jspsych) {
   "use strict";
 
@@ -24,11 +29,28 @@ var jsPsychTimedPhase = (function (jspsych) {
       wait_for: { type: jspsych.ParameterType.FUNCTION, default: null },
       /** chamado com o onset (ms, performance.now) assim que ele é medido */
       on_onset: { type: jspsych.ParameterType.FUNCTION, default: null },
+      /** grava áudio durante a etapa (kind = imagery) */
+      record: { type: jspsych.ParameterType.BOOL, default: false },
+      /** função que devolve o MediaRecorder a usar */
+      recorder: { type: jspsych.ParameterType.FUNCTION, default: null },
+      /** mimeType do Blob montado a partir dos chunks */
+      audio_mime: { type: jspsych.ParameterType.STRING, default: "audio/webm" },
+      /** bipes de abertura e de fechamento: { freq, ms, volume, type } */
+      beep_start: { type: jspsych.ParameterType.OBJECT, default: null },
+      beep_end: { type: jspsych.ParameterType.OBJECT, default: null },
     },
   };
 
   function now() {
     return performance.now();
+  }
+
+  function beep(spec) {
+    return spec && global_beep() ? global_beep().play(spec) : null;
+  }
+
+  function global_beep() {
+    return window.PilotBeep || null;
   }
 
   class TimedPhasePlugin {
@@ -41,24 +63,91 @@ var jsPsychTimedPhase = (function (jspsych) {
       const timers = [];
       const data = { phase: trial.kind, onset_ts: null, onset_source: null, end_request_ts: null };
 
-      const stopAll = () => {
+      // ---------- gravação (kind = imagery) ----------
+      const rec = trial.record && trial.recorder ? trial.recorder() : null;
+      let chunks = [];
+      let blobResolve = null;
+      const onData = (e) => {
+        if (e.data && e.data.size) chunks.push(e.data);
+      };
+      const onStop = () => {
+        const blob = new Blob(chunks, { type: trial.audio_mime });
+        chunks = [];
+        const r = blobResolve;
+        blobResolve = null;
+        if (r) r(blob);
+      };
+      const detachRec = () => {
+        if (!rec) return;
+        rec.removeEventListener("dataavailable", onData);
+        rec.removeEventListener("stop", onStop);
+      };
+      // Para o gravador e devolve o Blob (ou null se não havia gravação em curso).
+      const stopRec = () => {
+        if (!rec) return Promise.resolve(null);
+        if (rec.state === "inactive") {
+          detachRec();
+          return Promise.resolve(null);
+        }
+        const p = new Promise((resolve) => (blobResolve = resolve));
+        try {
+          rec.stop();
+        } catch (e) {
+          data.record_error = String(e);
+          blobResolve = null;
+          detachRec();
+          return Promise.resolve(null);
+        }
+        // rede de segurança: se o evento "stop" não vier, segue sem áudio
+        const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 2000));
+        return Promise.race([p, timeout]).then((b) => {
+          detachRec();
+          return b;
+        });
+      };
+
+      // keep_audio = true devolve uma Promise com o Blob; false descarta a gravação.
+      const stopAll = (keep_audio) => {
         done = true;
-        if (TimedPhasePlugin._cancel === stopAll) TimedPhasePlugin._cancel = null;
+        if (TimedPhasePlugin._cancel === cancel) TimedPhasePlugin._cancel = null;
         timers.forEach((t) => clearTimeout(t));
         if (trial.kind === "stimulus" && trial.element && trial.element.tagName === "VIDEO") {
           try { trial.element.pause(); } catch (e) { /* nada */ }
         }
+        if (!keep_audio) {
+          stopRec();
+          return Promise.resolve(null);
+        }
+        return stopRec();
       };
       // usado quando a etapa é interrompida de fora (botão de cansaço): para tudo sem chamar finishTrial
-      TimedPhasePlugin._cancel = stopAll;
+      const cancel = () => stopAll(false);
+      TimedPhasePlugin._cancel = cancel;
 
       const finish = (extra) => {
         if (done) return;
-        stopAll();
         data.end_request_ts = now();
+        if (trial.beep_end) data.beep_end_ts = beep(trial.beep_end);
+        if (!rec) {
+          stopAll(false);
+          Object.assign(data, extra || {});
+          display_element.innerHTML = "";
+          this.jsPsych.finishTrial(data);
+          return;
+        }
+        // com gravação, a tela só é limpa depois que o Blob fica pronto (alguns ms),
+        // para o bipe de fim tocar com a tela de imaginação ainda no lugar
+        const pending = stopAll(true);
         Object.assign(data, extra || {});
-        display_element.innerHTML = "";
-        this.jsPsych.finishTrial(data);
+        pending.then((blob) => {
+          data.recorder_stop_ts = now();
+          if (blob) {
+            data.audio_blob = blob;
+            data.audio_bytes = blob.size;
+          }
+          display_element.innerHTML = "";
+          this.jsPsych.finishTrial(data);
+        });
       };
 
       // agenda o fim para onset + duration. A etapa seguinte aparece no frame *depois* daquele
@@ -88,6 +177,7 @@ var jsPsychTimedPhase = (function (jspsych) {
         if (data.onset_ts !== null || done) return;
         data.onset_ts = ts;
         data.onset_source = source;
+        if (trial.kind === "imagery" && trial.beep_start) data.beep_start_ts = beep(trial.beep_start);
         if (trial.on_onset) trial.on_onset(ts, trial.kind);
         if (trial.kind !== "loading") scheduleEnd(ts);
       };
@@ -101,14 +191,53 @@ var jsPsychTimedPhase = (function (jspsych) {
       const box = (inner) =>
         `<div class="stim-box" style="width:${trial.size}px;height:${trial.size}px">${inner}</div>`;
 
+      // Liga o gravador e só mostra a tela de imaginação quando ele confirma o início,
+      // para que a janela de 20 s esteja inteira dentro do arquivo de áudio.
+      const startImagery = () => {
+        const show = () => {
+          if (done) return;
+          display_element.innerHTML = box(`<div class="imagery-text">${trial.html}</div>`);
+          onFirstFrame("raf");
+        };
+        if (!rec) { show(); return; }
+        display_element.innerHTML = box("");
+        chunks = [];
+        rec.addEventListener("dataavailable", onData);
+        rec.addEventListener("stop", onStop);
+        const onStart = () => {
+          if (data.recorder_start_ts === undefined || data.recorder_start_ts === null) {
+            data.recorder_start_ts = now();
+          }
+          show();
+        };
+        rec.addEventListener("start", onStart, { once: true });
+        try {
+          if (rec.state !== "inactive") throw new Error("gravador ocupado: " + rec.state);
+          rec.start();
+        } catch (e) {
+          data.record_error = String((e && e.message) || e);
+          rec.removeEventListener("start", onStart);
+          detachRec();
+          show();
+          return;
+        }
+        // se o evento "start" não vier, mostra a tela de qualquer jeito
+        timers.push(setTimeout(() => {
+          if (!done && data.onset_ts === null) {
+            data.record_start_timeout = 1;
+            rec.removeEventListener("start", onStart);
+            show();
+          }
+        }, 500));
+      };
+
       const start = () => {
         if (done) return;
         if (trial.kind === "fixation") {
           display_element.innerHTML = box('<div class="fixation">+</div>');
           onFirstFrame("raf");
         } else if (trial.kind === "imagery") {
-          display_element.innerHTML = box(`<div class="imagery-text">${trial.html}</div>`);
-          onFirstFrame("raf");
+          startImagery();
         } else if (trial.kind === "mask") {
           this.runMask(display_element, trial, () => done, setOnset, (frames) => (data.mask_frames = frames));
         } else if (trial.kind === "stimulus") {

@@ -1,8 +1,11 @@
 """Teste automatizado ponta a ponta do pré-piloto (Playwright + Chromium, microfone falso).
 
-Sessão A (P90): boas-vindas, checagem, teste de microfone, prática (escrita + áudio),
-12 trials, 1 checkpoint, troca de aba simulada, saída e volta da tela cheia, encerramento
-pelo botão de cansaço, questionário e download do .zip.
+Sessão A (P90): boas-vindas, checagem, teste de microfone e dos bipes, 2 rodadas de
+prática, 12 trials, 1 checkpoint, troca de aba simulada, saída e volta da tela cheia,
+encerramento pelo botão de cansaço, questionário e download do .zip.
+
+A descrição é sempre em voz alta e acontece dentro da janela de imaginação (20 s por
+padrão), então cada trial leva ~26 s e a sessão A roda em alguns minutos.
 
 Sessão B (P91): 3 trials e fechamento da janela no meio; reabre o link e baixa os trials
 concluídos pela tela de recuperação.
@@ -113,8 +116,9 @@ async def start_session(page, url):
     await click_button(page, "Continuar", timeout=60000)  # requisitos
     log("requisitos ok")
     await click_button(page, "Gravar 3 segundos")
-    await click_button(page, "Ouvi minha voz, continuar", timeout=20000)
-    log("teste de microfone ok")
+    await click_button(page, "Ouvir os dois bipes")
+    await click_button(page, "Ouvi minha voz e os bipes, continuar", timeout=20000)
+    log("teste de microfone e dos bipes ok")
     for _ in range(4):
         await click_button(page, "Continuar")
     await click_button(page, "Entrar em tela cheia")
@@ -125,9 +129,13 @@ async def start_session(page, url):
 
 
 async def do_trial(page, opts=None):
-    """Responde um trial a partir da tela de vividez. Devolve o registro do trial em andamento."""
+    """Responde um trial a partir da tela de vividez. Devolve o registro do trial em andamento.
+
+    A descrição em voz alta já aconteceu dentro da janela de imaginação (o microfone falso
+    do Chromium gera um tom durante os 20 s), então só restam as três perguntas.
+    """
     opts = opts or {}
-    await question_contains(page, "vívida", timeout=40000)
+    await question_contains(page, "vívida", timeout=60000)
     c = await cur(page)
     # vividez pelo teclado, dinamismo com clique
     await page.keyboard.press(str(opts.get("vividness", 4)))
@@ -136,29 +144,8 @@ async def do_trial(page, opts=None):
         await opts["before_dynamism"]()
     await page.locator(".scale-btn").nth(opts.get("dynamism", 2) - 1).click()
     await question_contains(page, "já viu")
-    # reconhecimento sempre correto, pelo teclado (S/N)
+    # reconhecimento sempre correto, pelo teclado (S/N); encerra o trial
     await page.keyboard.press("s" if c["is_repeat"] else "n")
-    await question_contains(page, "Descreva")
-    if c["description_mode"] == "written":
-        ta = page.locator("#desc-text")
-        await ta.click()
-        # números digitados na caixa de texto não podem acionar atalhos
-        await page.keyboard.type(f"teste 1 2 3 S N trial {c['trial_index']} {c['stim_id']}")
-        await page.wait_for_timeout(200)
-        still = await page.locator("#desc-text").count()
-        assert still == 1, "atalho de teclado disparou dentro da caixa de texto"
-        await click_button(page, "Continuar")
-    else:
-        # "fala" simulada (o microfone falso gera um tom) antes de parar
-        await page.wait_for_selector("#finish-trial", timeout=20000)
-        await page.wait_for_timeout(opts.get("speak_ms", 1500))
-        await click_button(page, "Parar gravação")
-        if opts.get("rerecord"):
-            await click_button(page, "Gravar de novo")
-            await page.wait_for_selector("#finish-trial", timeout=20000)
-            await page.wait_for_timeout(1200)
-            await click_button(page, "Parar gravação")
-        await click_button(page, "Continuar")
     return c
 
 
@@ -174,10 +161,9 @@ async def session_a(p, base, out):
 
     tab_switch_mode = None
     await start_session(page, f"{base}/?pid=P90&seed=12345")
-    # prática: 1 escrita + 1 áudio (este com regravação)
     for k in range(2):
-        c = await do_trial(page, {"rerecord": k == 1})
-        log(f"prática {k + 1}: {c['stim_id']} ({c['description_mode']})")
+        c = await do_trial(page)
+        log(f"prática {k + 1}: {c['stim_id']}")
     await click_button(page, "Começar")
 
     for i in range(1, 13):
@@ -213,7 +199,7 @@ async def session_a(p, base, out):
                 log("saída e volta da tela cheia no trial 5")
             opts["before_dynamism"] = leave_fs
         c = await do_trial(page, opts)
-        log(f"trial {c['trial_index']}: {c['stim_id']} {c['stim_type']} rep={c['is_repeat']} {c['description_mode']}")
+        log(f"trial {c['trial_index']}: {c['stim_id']} {c['stim_type']} rep={c['is_repeat']}")
         if i == 10:
             await page.wait_for_selector("input[name=fatigue]", timeout=20000)
             await page.locator("input[name=fatigue][value='2']").check()
@@ -222,7 +208,7 @@ async def session_a(p, base, out):
             log("checkpoint ok")
 
     # trial 13: encerra pelo botão de cansaço na tela de vividez
-    await question_contains(page, "vívida", timeout=40000)
+    await question_contains(page, "vívida", timeout=60000)
     await page.locator("#fatigue-btn").click()
     await click_button(page, "Sim, encerrar")
     log("encerrado pelo botão de cansaço")
@@ -231,12 +217,13 @@ async def session_a(p, base, out):
     await page.wait_for_selector("input[name=stop_reason]", timeout=20000)
     await page.locator("input[name=stop_reason][value=cansaco]").check()
     for name, v in [("instructions_clarity", 4), ("vividness_definition_sense", 5), ("dynamism_question_clarity", 3),
-                    ("mask_annoyance", 2), ("recognition_difficulty", 3)]:
+                    ("mask_annoyance", 2), ("beep_clarity", 5), ("recognition_difficulty", 3)]:
         await page.locator(f"input[name={name}][value='{v}']").check()
     await page.locator("input[name=imagery_time][value=ok]").check()
     await page.locator("input[name=stim_mask_time][value=ok]").check()
-    await page.locator("input[name=description_preference][value=escrita]").check()
-    await page.locator("textarea[name=description_preference_why]").fill("Mais rápido de revisar.")
+    await page.locator("input[name=simultaneous_description][value=ajudou]").check()
+    await page.locator("textarea[name=simultaneous_description_why]").fill("Falar ajudou a segurar a cena.")
+    await page.locator("input[name=eyes_closed][value=maioria]").check()
     await page.locator("textarea[name=fatigue_onset]").fill("Por volta do trial 10.")
     await page.locator("input[name=feasible_n_stimuli]").fill("60")
     await page.locator("input[name=interruptions][value=nao]").check()

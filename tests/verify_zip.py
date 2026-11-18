@@ -18,12 +18,17 @@ from pathlib import Path
 
 REQUIRED_COLS = (
     "participant_id, session_id, trial_index, is_practice, stim_id, item_id, stim_type, file, is_repeat, "
-    "first_presentation_trial, lag, description_mode, vividness, vividness_rt_ms, dynamism, dynamism_rt_ms, "
-    "recognized_old, recognition_correct, recognition_rt_ms, description_text, audio_file, audio_duration_ms, "
-    "description_rt_ms, stim_onset_ts, mask_onset_ts, imagery_onset_ts, trial_start_ts, trial_end_ts, "
+    "first_presentation_trial, lag, vividness, vividness_rt_ms, dynamism, dynamism_rt_ms, "
+    "recognized_old, recognition_correct, recognition_rt_ms, audio_file, audio_duration_ms, audio_bytes, "
+    "stim_onset_ts, mask_onset_ts, mask_end_ts, imagery_onset_ts, imagery_end_ts, imagery_start_gap_ms, "
+    "beep_start_ts, beep_end_ts, "
+    "audio_recorder_start_ts, audio_onset_offset_ms, trial_start_ts, trial_end_ts, "
     "n_focus_losses, focus_lost_ms, stim_load_ms"
 ).split(", ")
-TOL = {"stim": 20, "mask": 20, "imagery": 40}  # ms (≈ 1 frame; imaginação inclui o 1º frame da tela de resposta)
+TOL = {"stim": 20, "mask": 20, "imagery": 40}  # ms (≈ 1 frame)
+# Entre o fim da máscara e o onset da imaginação a tela fica vazia enquanto o MediaRecorder
+# confirma o start (~50 ms + até um frame). É medido, não estimado: imagery_start_gap_ms.
+TOL_GAP_MS = 250
 
 results = []
 
@@ -70,12 +75,9 @@ def validate_sequence(seq, cfg):
     seen, rep_once = {}, set()
     blocks = {}
     for t in seq:
-        b = blocks.setdefault(t["block"], {"n": 0, "image": 0, "video": 0, "rep": 0, "written": 0, "iw": 0, "vw": 0})
+        b = blocks.setdefault(t["block"], {"n": 0, "image": 0, "video": 0, "rep": 0})
         b["n"] += 1
         b[t["stim_type"]] += 1
-        if t["description_mode"] == "written":
-            b["written"] += 1
-            b["iw" if t["stim_type"] == "image" else "vw"] += 1
         if t["is_repeat"]:
             b["rep"] += 1
             if t["stim_id"] not in seen or t["stim_id"] in rep_once:
@@ -93,10 +95,6 @@ def validate_sequence(seq, cfg):
             probs.append(f"bloco {k}: {b['rep']} repetições")
         if abs(b["image"] - b["video"]) > 1:
             probs.append(f"bloco {k}: tipo desbalanceado")
-        if abs(2 * b["written"] - b["n"]) > 1:
-            probs.append(f"bloco {k}: modalidade desbalanceada")
-        if abs(2 * b["iw"] - b["image"]) > 1 or abs(2 * b["vw"] - b["video"]) > 1:
-            probs.append(f"bloco {k}: modalidade não cruzada com o tipo")
     # prefixos: qualquer prefixo de blocos completos tem a proporção exata
     n_rep = sum(t["is_repeat"] for t in seq)
     return probs, n_rep, len(seq)
@@ -126,21 +124,25 @@ def verify_main(zpath, expect):
     # trials batem com a sequência planejada
     plan = {t["trial_index"]: t for t in s["planned_sequence"]}
     mism = [t["trial_index"] for t in main if plan[int(t["trial_index"])]["stim_id"] != t["stim_id"]
-            or plan[int(t["trial_index"])]["description_mode"] != t["description_mode"]
             or int(t["is_repeat"]) != plan[int(t["trial_index"])]["is_repeat"]]
-    check(not mism, "trials executados seguem a sequência planejada (estímulo, modalidade, repetição)")
+    check(not mism, "trials executados seguem a sequência planejada (estímulo, repetição)")
 
     # durações
+    imagery_ms = s["config"]["imagery_duration_ms"]
     devs = {"stim": [], "mask": [], "imagery": []}
     for t in main + prac:
         devs["stim"].append(float(t["stim_duration_measured_ms"]) - 3000)
         devs["mask"].append(float(t["mask_duration_measured_ms"]) - 2000)
-        devs["imagery"].append(float(t["imagery_duration_measured_ms"]) - 6000)
+        devs["imagery"].append(float(t["imagery_duration_measured_ms"]) - imagery_ms)
         # confere também pelos onsets brutos
         assert abs(float(t["mask_onset_ts"]) - float(t["stim_onset_ts"]) - float(t["stim_duration_measured_ms"])) < 0.2
     for k, v in devs.items():
         mx = max(abs(x) for x in v)
         check(mx <= TOL[k], f"duração {k}: desvio máx {mx:.1f} ms, médio {sum(v) / len(v):+.1f} ms (tolerância {TOL[k]} ms)")
+    gaps = [float(t["imagery_start_gap_ms"]) for t in main + prac if t["imagery_start_gap_ms"]]
+    check(len(gaps) == len(main + prac) and all(0 <= g <= TOL_GAP_MS for g in gaps),
+          f"tela vazia entre máscara e imaginação (start do gravador): {min(gaps):.0f}–{max(gaps):.0f} ms, "
+          f"mediana {sorted(gaps)[len(gaps) // 2]:.0f} ms (limite {TOL_GAP_MS} ms)" if gaps else "imagery_start_gap_ms ausente")
     vt = [t for t in prac if t["stim_type"] == "video"]
     check(vt and vt[0]["video_truncated"] == "1", "vídeo de prática de 4 s marcado como cortado (video_truncated=1)")
 
@@ -148,13 +150,20 @@ def verify_main(zpath, expect):
     check(all(t["recognition_correct"] == "1" for t in main), "reconhecimento correto em todos (o teste responde certo)")
     check(all(t["vividness"] and t["dynamism"] for t in main), "vividez e dinamismo preenchidos")
     check(all(t["stim_load_ms"] != "" for t in main), "stim_load_ms registrado")
-    written = [t for t in main + prac if t["description_mode"] == "written"]
-    check(all("1 2 3 S N" in t["description_text"] for t in written), "texto digitado com números/S/N intacto (atalhos desativados na caixa de texto)")
 
-    # áudios
-    audio_trials = [t for t in main + prac if t["description_mode"] == "audio"]
+    # a janela de imaginação/descrição cabe inteira dentro do arquivo de áudio: o gravador
+    # começa junto com o onset (o offset fica dentro de um frame, podendo ser levemente
+    # negativo porque o timestamp do requestAnimationFrame é o início do frame)
+    off = [float(t["audio_onset_offset_ms"]) for t in main + prac if t["audio_onset_offset_ms"]]
+    check(len(off) == len(main + prac) and all(-30 <= x < 1000 for x in off),
+          f"gravação alinhada ao onset da imaginação (offset {min(off):+.1f}–{max(off):+.1f} ms)" if off else "offset de gravação ausente")
+    beeps = [t for t in main + prac if t["beep_start_ts"] and t["beep_end_ts"]]
+    check(len(beeps) == len(main + prac), f"bipes de início e fim registrados em {len(beeps)}/{len(main + prac)} trials")
+
+    # áudios: um por trial que chegou ao fim da janela de imaginação (inclui o trial abortado depois dela)
+    audio_trials = [t for t in trials if t["audio_file"]]
     files = sorted(n for n in rel if n.startswith("audio/") and n != "audio/")
-    check(sorted("audio/" + t["audio_file"] for t in audio_trials) == files, f"{len(files)} arquivos de áudio, um por trial em áudio")
+    check(sorted("audio/" + t["audio_file"] for t in audio_trials) == files, f"{len(files)} arquivos de áudio, um por janela de imaginação concluída")
     total_bytes = total_s = 0
     bad = []
     for t in audio_trials:
@@ -162,11 +171,12 @@ def verify_main(zpath, expect):
         info = audio_info(data)
         total_bytes += len(data)
         total_s += info["decoded_s"]
-        if not (info["decode_ok"] and info["codec"] == "opus" and info["channels"] == "mono" and info["decoded_s"] > 0.5):
+        min_s = 0.8 * imagery_ms / 1000
+        if not (info["decode_ok"] and info["codec"] == "opus" and info["channels"] == "mono" and info["decoded_s"] > min_s):
             bad.append((t["audio_file"], info))
         if t["audio_duration_ms"] and abs(info["decoded_s"] * 1000 - float(t["audio_duration_ms"])) > 150:
             bad.append((t["audio_file"], "duração difere", info["decoded_s"], t["audio_duration_ms"]))
-    check(not bad, f"áudios decodificam (ffmpeg), opus mono, com som e duração coerente {bad if bad else ''}")
+    check(not bad, f"áudios decodificam (ffmpeg), opus mono, cobrindo a janela de {imagery_ms / 1000:.0f} s {bad if bad else ''}")
     kbps = total_bytes * 8 / total_s / 1000 if total_s else 0
 
     if expect.get("checkpoint"):
@@ -181,12 +191,15 @@ def verify_main(zpath, expect):
         fs = [e for e in evs if e["event_type"] == "fullscreen_exit"]
         check(len(fs) == 1 and fs[0]["trial_index"] == "5", "1 saída da tela cheia registrada no trial 5")
     if expect.get("feedback"):
-        check(fb and fb.get("stop_reason") == "cansaco" and fb.get("feasible_n_stimuli") == "60", "final_feedback.json preenchido")
+        check(fb and fb.get("stop_reason") == "cansaco" and fb.get("feasible_n_stimuli") == "60"
+              and fb.get("simultaneous_description") == "ajudou" and fb.get("eyes_closed") == "maioria",
+              "final_feedback.json preenchido (inclui as perguntas novas de simultaneidade e olhos fechados)")
 
     probs, n_rep, n = validate_sequence(s["planned_sequence"], s["config"])
     check(not probs and n == s["config"]["n_max_trials"],
           f"sequência planejada ({n} trials, {n_rep} repetições = {n_rep / n:.0%}): lags em [{s['config']['min_lag']},{s['config']['max_lag']}], blocos balanceados {probs[:3] if probs else ''}")
-    return {"zip_bytes": zpath.stat().st_size, "audio_kbps": kbps, "n_audio": len(files), "audio_s": total_s}
+    return {"zip_bytes": zpath.stat().st_size, "audio_kbps": kbps, "n_audio": len(files), "audio_s": total_s,
+            "imagery_ms": imagery_ms}
 
 
 def main():
@@ -210,12 +223,12 @@ def main():
         check(not res["a"]["fullscreen_after_end"], "saiu da tela cheia no final")
         check(not [e for e in res["a"]["errors"] if "favicon" not in e], f"sem erros de JavaScript na página {res['a']['errors'][:3]}")
     if stats:
-        # projeção para 100 trials: 50 em áudio; supõe 30 s de fala por descrição
-        proj_audio = 50 * 30 * stats["audio_kbps"] * 1000 / 8
+        # projeção para 100 trials: todos em áudio, uma janela inteira cada
+        win_s = stats["imagery_ms"] / 1000
+        proj_audio = 100 * win_s * stats["audio_kbps"] * 1000 / 8
         print(f"\nTamanho do zip da sessão A: {stats['zip_bytes'] / 1024:.1f} KB "
               f"({stats['n_audio']} áudios, {stats['audio_s']:.1f} s, {stats['audio_kbps']:.1f} kbps efetivos)")
-        print(f"Projeção para 100 trials (50 descrições em áudio de 30 s): ~{(proj_audio + 150e3) / 1e6:.1f} MB; "
-              f"com 60 s por descrição: ~{(2 * proj_audio + 150e3) / 1e6:.1f} MB")
+        print(f"Projeção para 100 trials (100 janelas de {win_s:.0f} s): ~{(proj_audio + 150e3) / 1e6:.1f} MB")
     n_fail = sum(1 for ok, _ in results if not ok)
     print(f"\n{len(results) - n_fail}/{len(results)} verificações OK")
     sys.exit(1 if n_fail else 0)

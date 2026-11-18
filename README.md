@@ -2,6 +2,18 @@
 
 Site estático (jsPsych 7) para o pré-piloto comportamental remoto. Cada participante abre um link individual no próprio computador, faz até 100 trials (pode parar quando quiser) e, no final, o site baixa um `.zip` com todos os dados, que a pessoa envia por e-mail. Não há servidor de dados: tudo fica no navegador (IndexedDB) até o download.
 
+## Como é um trial (v2)
+
+1. cruz de fixação (`fixation_ms`, 500 ms);
+2. imagem ou vídeo curto (`stim_duration_ms`, 3 s);
+3. máscara de chuvisco dinâmico (`mask_duration_ms`, 2 s);
+4. **janela de imaginação e descrição** (`imagery_duration_ms`, 20 s): um **bipe agudo** (`beep_start`) abre a janela, o participante fecha os olhos, projeta mentalmente o estímulo e descreve **em voz alta, ao mesmo tempo**, a imagem que está vendo; um **bipe grave** (`beep_end`) fecha a janela. O microfone grava a janela inteira;
+5. vividez (1–5), dinamismo (1–5) e reconhecimento (já viu antes nesta sessão?).
+
+A descrição é **sempre em voz alta** — não existe mais descrição escrita nem alternância entre modalidades, e as escalas vêm depois da descrição, não antes. As instruções pedem explicitamente a descrição **da imagem** (objetos, cores, cena), não do processo de imaginar, e usam as palavras "projetar mentalmente".
+
+Os bipes são sintetizados na hora pela Web Audio API (`js/beep.js`), sem arquivo de áudio, e são conferidos pelo participante na tela de teste do microfone — ele só passa adiante depois de ouvir a própria voz **e** os dois bipes. Como saem pelos alto-falantes, costumam ficar gravados junto com a descrição, servindo de marca audível do começo e do fim da janela.
+
 ```
 index.html             página única
 config.json            parâmetros e textos (edite aqui, sem mexer no código)
@@ -158,7 +170,9 @@ Os excluídos ocupam a vaga no sorteio como se fossem válidos, para que todo o 
 
 ## Configuração (`config.json`)
 
-Durações (`fixation_ms`, `stim_duration_ms`, `mask_duration_ms`, `imagery_duration_ms`), `n_max_trials`, `block_size`, `checkpoint_every`, `repeat_proportion`, `min_lag`, `max_lag`, `stim_size_px`, `audio_bitrate_bps`, `audio_max_ms`, requisitos de janela, e-mail de envio e todos os textos (boas-vindas, instruções, comando de imaginação, definição de vividez, âncoras de vividez e dinamismo, perguntas extras do questionário). Os textos aceitam HTML.
+Durações (`fixation_ms`, `stim_duration_ms`, `mask_duration_ms`, `imagery_duration_ms`), os bipes (`beep_start` e `beep_end`, cada um `{freq, ms, volume, type}`), `n_max_trials`, `block_size`, `checkpoint_every`, `repeat_proportion`, `min_lag`, `max_lag`, `stim_size_px`, `audio_bitrate_bps`, requisitos de janela, e-mail de envio e todos os textos (boas-vindas, instruções, comando de imaginação, definição de vividez, âncoras de vividez e dinamismo, perguntas extras do questionário). Os textos aceitam HTML.
+
+`imagery_duration_ms` é a janela inteira de imaginação **e** descrição: mexer nele muda o tempo de fala e o tamanho dos áudios. O texto do questionário final e o mínimo esperado de cada áudio no `tests/verify_zip.py` são derivados dele, então não há número de segundos escrito à mão para atualizar.
 
 As chaves listadas em `_textos_provisorios` ainda são rascunhos meus e precisam ser trocadas pelos textos finais.
 
@@ -177,11 +191,16 @@ P01_<session_id>/
   audio/P01_t012_S034.webm   (prática: P01_pt02_PR02.webm)
 ```
 
+Um arquivo de áudio por janela de imaginação concluída — inclusive em trials com `status = aborted`, quando o participante encerrou durante as perguntas: o áudio é gravado no banco assim que a janela termina, antes das três perguntas, para não se perder.
+
 - Todos os `*_ts` são milissegundos desde o início da sessão (clique em Começar na tela de boas-vindas). O instante absoluto do início está em `t0_epoch_ms` no `session.json`.
-- `stim_duration_measured_ms`, `mask_duration_measured_ms` e `imagery_duration_measured_ms` são as diferenças entre os onsets medidos no navegador (primeiro frame de cada etapa).
+- `stim_duration_measured_ms`, `mask_duration_measured_ms` e `imagery_duration_measured_ms` são medidos no navegador, do primeiro frame de cada etapa (`*_onset_ts`) até o pedido de fim dela mesma (`mask_end_ts`, `imagery_end_ts`) — não até o onset da etapa seguinte. Cada um fica sistematicamente ~1 frame (10–16 ms) abaixo do valor pedido, porque a etapa termina no último frame antes do alvo justamente para que a seguinte comece no alvo.
+- `imagery_start_gap_ms` é a tela vazia entre o fim da máscara e o onset da imaginação: **~60 ms**, o tempo que o `MediaRecorder` leva para confirmar o `start`. A tela de imaginação só aparece depois disso, de propósito, para que a janela inteira caiba no arquivo de áudio. Se algum dia esse número incomodar, dá para eliminá-lo ligando o gravador já na fase da máscara (o áudio passaria a incluir os 2 s de chuvisco).
+- Entre o fim da janela e a tela de vividez há mais alguns ms, enquanto o `.webm` é montado.
+- `beep_start_ts` e `beep_end_ts` são os instantes em que os bipes foram agendados (o som sai ~5 ms depois). `audio_recorder_start_ts` é quando o gravador começou e `audio_onset_offset_ms` é a distância dele até o onset da imaginação, isto é, **em que ponto do arquivo `.webm` a janela começa** — na prática ~0 ms (podendo ficar alguns décimos negativo), porque a tela só aparece depois de o gravador confirmar o início. `record_error` fica preenchido se a gravação daquele trial falhou.
 - `status` do trial: `completed`, `aborted` (interrompido pelo botão de cansaço) ou `skipped_load_error` (estímulo não carregou, depois de 2 tentativas).
 - `termination_reason`: `fatigue_button`, `checkpoint_stop`, `completed_max` ou `incomplete` (sessão interrompida e recuperada depois; o motivo anterior, se houver, fica em `termination_reason_before_interruption`).
-- Áudio em Opus mono, ~32 kbps: uma sessão completa fica em torno de 5 MB (com descrições de 30 s) a 11 MB (60 s).
+- Áudio em Opus mono, ~32 kbps, sempre uma janela cheia (20 s) por trial: ~80 KB por trial, ou ~8 MB numa sessão completa de 100 trials.
 
 ## Resumir os dados recebidos
 
@@ -205,7 +224,7 @@ Com o servidor local rodando na porta 8765 (`python3 -m http.server 8765`):
 .venv/bin/python tests/e2e_test.py && .venv/bin/python tests/verify_zip.py tests/output
 ```
 
-A sessão A faz prática, 12 trials, um checkpoint, uma troca de aba, uma saída da tela cheia, encerra pelo botão de cansaço e preenche o questionário. A sessão B fecha a janela no meio e confere a recuperação. No Chromium headless a troca de aba de verdade não muda a visibilidade da página, então o teste simula os eventos que o Chrome dispara (`visibilitychange` + `blur`).
+A sessão A faz prática, 12 trials, um checkpoint, uma troca de aba, uma saída da tela cheia, encerra pelo botão de cansaço e preenche o questionário. Como cada trial gasta a janela de 20 s inteira (o microfone falso do Chromium gera um tom), o teste leva alguns minutos. A sessão B fecha a janela no meio e confere a recuperação. No Chromium headless a troca de aba de verdade não muda a visibilidade da página, então o teste simula os eventos que o Chrome dispara (`visibilitychange` + `blur`).
 
 ## Requisitos e limitações
 
